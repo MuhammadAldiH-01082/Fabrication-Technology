@@ -41,30 +41,37 @@ let isMySQL = false;
 
 async function initDB() {
   if (DB_TYPE === "mysql" && process.env.DB_HOST) {
-    console.log("Connecting to MySQL...");
+    console.log("Attempting MySQL connection to:", process.env.DB_HOST);
     try {
-      db = await mysql.createPool({
+      const pool = mysql.createPool({
         host: process.env.DB_HOST,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME,
+        user: process.env.DB_USER || "root",
+        password: process.env.DB_PASSWORD || "",
+        database: process.env.DB_NAME || "engineering_db",
         waitForConnections: true,
         connectionLimit: 10,
-        queueLimit: 0
+        queueLimit: 0,
+        connectTimeout: 2000,
       });
+      // Test the connection
+      const conn = await pool.getConnection();
+      conn.release();
+      db = pool;
       isMySQL = true;
-      console.log("MySQL connected.");
-    } catch (err) {
-      console.error("MySQL connection failed, falling back to SQLite:", err);
+      console.log("MySQL connected successfully.");
+    } catch (err: any) {
+      console.warn("MySQL connection failed, safely falling back to SQLite:", err.message);
       setupSQLite();
     }
   } else {
     setupSQLite();
   }
+
+  await seedInitialData();
 }
 
 function setupSQLite() {
-  console.log("Using SQLite...");
+  console.log("Using SQLite database...");
   db = new Database("database.sqlite");
   isMySQL = false;
 
@@ -147,48 +154,141 @@ function setupSQLite() {
   try { db.exec("ALTER TABLE portfolio ADD COLUMN year TEXT"); } catch (e) {}
 }
 
-// Wrapper for DB queries to handle both SQLite and MySQL
-async function query(sql: string, params: any[] = []) {
-  if (isMySQL) {
-    // MySQL uses '?' but it's consistent with better-sqlite3 for standard params
-    const [rows] = await db.execute(sql, params);
-    return rows;
-  } else {
-    // better-sqlite3
-    if (sql.trim().toLowerCase().startsWith("select")) {
-      return db.prepare(sql).all(...params);
+async function dbGet(sql: string, params: any[] = []) {
+  try {
+    if (isMySQL) {
+      const [rows]: any = await db.execute(sql, params);
+      return rows[0];
     } else {
-      return db.prepare(sql).run(...params);
+      return db.prepare(sql).get(...params);
     }
+  } catch (error) {
+    console.error("dbGet error:", error);
+    return null;
   }
 }
 
-async function queryOne(sql: string, params: any[] = []) {
-  const result = await query(sql, params);
-  return isMySQL ? result[0] : result; // SQLite select one is handled differently in better-sqlite3 prepare().get()
-}
-// Note: Adjusted queryOne for better compatibility
-async function dbGet(sql: string, params: any[] = []) {
-  if (isMySQL) {
-    const [rows] = await db.execute(sql, params);
-    return rows[0];
-  } else {
-    return db.prepare(sql).get(...params);
-  }
-}
 async function dbAll(sql: string, params: any[] = []) {
-  if (isMySQL) {
-    const [rows] = await db.execute(sql, params);
-    return rows;
-  } else {
-    return db.prepare(sql).all(...params);
+  try {
+    if (isMySQL) {
+      const [rows]: any = await db.execute(sql, params);
+      return rows;
+    } else {
+      return db.prepare(sql).all(...params);
+    }
+  } catch (error) {
+    console.error("dbAll error:", error);
+    return [];
   }
 }
+
 async function dbRun(sql: string, params: any[] = []) {
-  if (isMySQL) {
-    return await db.execute(sql, params);
-  } else {
-    return db.prepare(sql).run(...params);
+  try {
+    if (isMySQL) {
+      return await db.execute(sql, params);
+    } else {
+      return db.prepare(sql).run(...params);
+    }
+  } catch (error) {
+    console.error("dbRun error:", error);
+    throw error;
+  }
+}
+
+async function seedInitialData() {
+  try {
+    const existingServices = await dbAll("SELECT * FROM services");
+    if (!existingServices || existingServices.length === 0) {
+      const defaultServices = [
+        {
+          id: 'cad-modeling',
+          title: '3D CAD Modeling',
+          description: 'Desain 3D parametrik presisi tinggi untuk komponen mekanik, mold, die, dan perakitan kompleks.',
+          icon: 'Box',
+          capabilities: JSON.stringify(["Solid Modeling & Complex Surfacing", "Sheet Metal & Weldments Design", "Assembly & Kinematic Motion Simulation", "Reverse Engineering from 3D Scan"]),
+          software: JSON.stringify(["Autodesk Inventor", "SolidWorks", "Fusion 360", "Siemens NX"]),
+          color: 'blue'
+        },
+        {
+          id: 'engineering-drawing',
+          title: '2D Engineering Drawing',
+          description: 'Pembuatan gambar kerja standar industri (ISO/ASME) lengkap dengan GD&T, toleransi, dan BOM.',
+          icon: 'FileText',
+          capabilities: JSON.stringify(["Manufacturing & Shop Drawings", "GD&T & Tolerance Stack-up Analysis", "Bill of Materials (BOM) & Cut Lists", "Exploded View & Assembly Manuals"]),
+          software: JSON.stringify(["AutoCAD", "SolidWorks 2D", "Autodesk Inventor", "DraftSight"]),
+          color: 'indigo'
+        },
+        {
+          id: 'simulation-analysis',
+          title: 'Mechanical Simulation & FEA',
+          description: 'Analisis kekuatan struktur, tegangan, deformasi, termal, dan dinamika fluida (CFD) untuk optimasi desain.',
+          icon: 'Activity',
+          capabilities: JSON.stringify(["Finite Element Analysis (FEA)", "Computational Fluid Dynamics (CFD)", "Thermal & Heat Transfer Analysis", "Fatigue & Durability Life Estimation"]),
+          software: JSON.stringify(["Ansys Mechanical", "SolidWorks Simulation", "Autodesk CFD", "Abaqus"]),
+          color: 'cyan'
+        },
+        {
+          id: 'fabrication-prototyping',
+          title: 'Prototype Fabrication',
+          description: 'Realisasi fisik prototipe menggunakan teknologi CNC, 3D printing, sheet metal, dan perakitan presisi.',
+          icon: 'Settings',
+          capabilities: JSON.stringify(["3D Printing (FDM, SLA, SLS)", "CNC Milling & Turning (3-5 Axis)", "Laser Cutting & Sheet Metal Bending", "Assembly, Testing & Quality Verification"]),
+          software: JSON.stringify(["Cura / PrusaSlicer", "Mastercam / Fusion CAM", "LaserGRBL", "Mach3 / LinuxCNC"]),
+          color: 'emerald'
+        }
+      ];
+
+      for (const s of defaultServices) {
+        await dbRun(
+          "INSERT INTO services (id, title, description, icon, capabilities, software, color) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [s.id, s.title, s.description, s.icon, s.capabilities, s.software, s.color]
+        );
+      }
+      console.log("Default services seeded.");
+    }
+
+    const existingPortfolio = await dbAll("SELECT * FROM portfolio");
+    if (!existingPortfolio || existingPortfolio.length === 0) {
+      const defaultPortfolio = [
+        {
+          id: 'custom-drone-frame',
+          title: 'Custom Carbon Drone Airframe',
+          category: 'Aerospace & Robotics',
+          image: 'https://images.unsplash.com/photo-1527977966376-1c8408f9f108?auto=format&fit=crop&q=80&w=800',
+          description: 'Desain struktur rangka drone serat karbon ultra-ringan dengan optimasi aerodinamika dan kekakuan torsional tinggi.',
+          software: JSON.stringify(["SolidWorks", "Ansys FEA"]),
+          year: '2024'
+        },
+        {
+          id: 'robotic-gripper-arm',
+          title: 'Adaptive Robotic Gripper',
+          category: 'Industrial Automation',
+          image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=800',
+          description: 'Mekanisme gripper adaptif multi-link untuk lini perakitan komponen sensitif otomotif.',
+          software: JSON.stringify(["Autodesk Inventor", "Cura 3D"]),
+          year: '2024'
+        },
+        {
+          id: 'industrial-gearbox',
+          title: 'High-Torque Industrial Gearbox',
+          category: 'Machinery & Power Trans',
+          image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&q=80&w=800',
+          description: 'Housing transmisi daya beban berat dengan sistem pendingin oli internal dan analisis termal CFD.',
+          software: JSON.stringify(["Siemens NX", "Ansys Mechanical"]),
+          year: '2023'
+        }
+      ];
+
+      for (const p of defaultPortfolio) {
+        await dbRun(
+          "INSERT INTO portfolio (id, title, category, image, description, software, year) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [p.id, p.title, p.category, p.image, p.description, p.software, p.year]
+        );
+      }
+      console.log("Default portfolio seeded.");
+    }
+  } catch (err) {
+    console.error("Seeding error:", err);
   }
 }
 
