@@ -1,0 +1,125 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information and role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "client"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Engineering project order details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientUid": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "description": { "type": "string" },
+        "deadline": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["pending", "reviewing", "quoted", "payment_pending", "in_progress", "completed", "cancelled"] },
+        "price": { "type": "number" },
+        "shippingAddress": { "type": "string" },
+        "referenceUrl": { "type": "string" },
+        "files": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "url": { "type": "string" } } } },
+        "resultFiles": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "url": { "type": "string" } } } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientUid", "serviceType", "description", "status"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Engineering service content.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "software": { "type": "array", "items": { "type": "string" } },
+        "color": { "type": "string" }
+      },
+      "required": ["title", "description"]
+    },
+    "Portfolio": {
+      "title": "Portfolio",
+      "description": "Showcase of completed engineering projects.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "software": { "type": "array", "items": { "type": "string" } },
+        "year": { "type": "string" }
+      },
+      "required": ["title", "category", "imageUrl"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Chat session between a user and admins.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "number" }
+      },
+      "required": ["userId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Individual chat message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isAdmin": { "type": "boolean" }
+      },
+      "required": ["senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles and roles."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Project orders."
+    },
+    "/portfolio/{projectId}": {
+      "schema": "Portfolio",
+      "description": "Portfolio items."
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Engineering services."
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Chat sessions."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a chat session."
+    }
+  }
+}
