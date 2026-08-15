@@ -17,7 +17,7 @@ import About from './pages/About';
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-600/10 selection:text-blue-600">
           <Navbar />
           <main className="flex-grow">
