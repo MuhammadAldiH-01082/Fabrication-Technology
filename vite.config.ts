@@ -5,8 +5,11 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  const isGitHubPages = process.env.GITHUB_ACTIONS === 'true' || process.env.VITE_BASE_PATH === 'github-pages';
+  const base = isGitHubPages ? '/Fabrication-Technology/' : '/';
+
   return {
-    base: '/Fabrication-Technology/',
+    base,
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
